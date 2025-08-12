@@ -5,11 +5,14 @@ from utils import search, fetch_figures_only, fetch_animated_videos
 
 # Tool 1: Knowledge Base (Textbook) Search Tool
 def knowledgebase_tool_func(query: str) -> str:
+    print(f"[DEBUG] knowledgebase_tool_func called with query: {query}")
     results = search(query, mode="hybrid", top_k=1)
     if results:
-        return results[0]['content']
+        output = results[0]['content']
     else:
-        return "Sorry, I couldn't find information for that topic."
+        output = "Sorry, I couldn't find information for that topic."
+    print(f"[DEBUG] knowledgebase_tool_func output:\n{output}\n")
+    return output
 
 knowledgebase_tool = Tool(
     name="KnowledgeBaseSearch",
@@ -19,15 +22,17 @@ knowledgebase_tool = Tool(
 
 # Tool 2: Image/Figure Retrieval Tool
 def image_tool_func(topic: str) -> str:
+    print(f"[DEBUG] image_tool_func called with topic: {topic}")
     results = fetch_figures_only(topic)
     if isinstance(results, str):  # error or no figures found
-        return results
+        output = results
     elif results:
-        # Format image info textually; actual display handled later by front end
         imgs = [f"{img['name']}: {img['desc']} (path: {img['path']})" for img in results]
-        return "\n".join(imgs)
+        output = "\n".join(imgs)
     else:
-        return "No relevant images found."
+        output = "No relevant images found."
+    print(f"[DEBUG] image_tool_func output:\n{output}\n")
+    return output
 
 image_tool = Tool(
     name="ImageRetrieval",
@@ -37,12 +42,14 @@ image_tool = Tool(
 
 # Tool 3: Animated Video Retrieval Tool
 def video_tool_func(topic: str) -> str:
+    print(f"[DEBUG] video_tool_func called with topic: {topic}")
     result = fetch_animated_videos(topic)
     if result:
-        # Provide video title and Youtube ID so front end can embed if needed
-        return f"Video: {result['title']} (YouTube ID: {result['id']})"
+        output = f"Video: {result['title']} (YouTube ID: {result['id']})"
     else:
-        return "No animation video found for this topic."
+        output = "No animation video found for this topic."
+    print(f"[DEBUG] video_tool_func output:\n{output}\n")
+    return output
 
 video_tool = Tool(
     name="VideoRetrieval",

@@ -1,24 +1,16 @@
-# agent.py
-
-from langchain_community.chat_models import ChatPerplexity
-from langchain.agents import initialize_agent, AgentType
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.memory import ConversationBufferMemory
+from langgraph.prebuilt import create_react_agent
 from agent_tools import knowledgebase_tool, image_tool, video_tool
 
-# --------------------------------------------
-# 1. Set your Perplexity API key here (replace with your actual key)
-PERPLEXITY_API_KEY = "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"
+GOOGLE_API_KEY = "AIzaSyAKimE8Y9XQfXe0jDOPK-TrAn4VgXaAvjo"  # Use your key
 
-# --------------------------------------------
-# 2. Initialize the Perplexity LLM
-llm = ChatPerplexity(
-    model="llama-3.1-sonar-small-128k-online",  # Example model name, update if needed
+llm = ChatGoogleGenerativeAI(
+    model="gemini-2.5-pro",
     temperature=0.7,
-    pplx_api_key=PERPLEXITY_API_KEY
+    google_api_key=GOOGLE_API_KEY
 )
 
-# --------------------------------------------
-# 3. Full detailed system prompt guiding AI teacher behavior
 agent_system_prompt = """
 You are an engaging, empathetic, and knowledgeable AI science teacher for middle-school students.
 
@@ -43,35 +35,21 @@ TOOLS AVAILABLE:
 Behave like a passionate human teacher, not a robot. Handle unexpected questions, interruptions, and clarifications adaptively, using your tools.
 """
 
-# --------------------------------------------
-# 4. Initialize conversation memory to keep context during interaction
 memory = ConversationBufferMemory(memory_key="chat_history")
 
-# --------------------------------------------
-# 5. Initialize the LangChain conversational agent with tools, prompt, memory, and LLM
-agent = initialize_agent(
+agent = create_react_agent(
+    llm,
     tools=[knowledgebase_tool, image_tool, video_tool],
-    llm=llm,
-    agent=AgentType.CONVERSATIONAL_REACT_DESCRIPTION,
-    memory=memory,
-    verbose=True,
-    system_prompt=agent_system_prompt
+    prompt=agent_system_prompt
 )
 
-# --------------------------------------------
-# 6. Helper function for easier agent interaction
+
 def ask_agent(question: str) -> str:
-    """
-    Send a query to the AI teacher agent and get a response.
-    Maintains conversation state with memory.
-    """
-    response = agent.run(question)
-    return response
+    response = agent.invoke({"messages": [("human", question)]})
+    return response["messages"][-1].content
 
-
-# Optional: For quick test when running this file directly
 if __name__ == "__main__":
-    print("Testing AI Teacher Agent...")
+    print("Testing dynamic AI Teacher Agent with LangGraph...")
     test_query = "Explain photosynthesis."
     print(f"Question: {test_query}")
     print("Answer:", ask_agent(test_query))
