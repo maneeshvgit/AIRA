@@ -1,9 +1,7 @@
-# agent_tools.py
-
 from langchain.tools import Tool
 from utils import search, fetch_figures_only, fetch_animated_videos
 
-# Tool 1: Knowledge Base (Textbook) Search Tool
+# Tool 1: Knowledge Base Search Tool
 def knowledgebase_tool_func(query: str) -> str:
     print(f"[DEBUG] knowledgebase_tool_func called with query: {query}")
     results = search(query, mode="hybrid", top_k=1)
@@ -20,6 +18,7 @@ knowledgebase_tool = Tool(
     description="Retrieves explanations from the science textbook knowledge base."
 )
 
+
 # Tool 2: Image/Figure Retrieval Tool
 def image_tool_func(topic: str) -> str:
     print(f"[DEBUG] image_tool_func called with topic: {topic}")
@@ -27,7 +26,8 @@ def image_tool_func(topic: str) -> str:
     if isinstance(results, str):  # error or no figures found
         output = results
     elif results:
-        imgs = [f"{img['name']}: {img['desc']} (path: {img['path']})" for img in results]
+        # Provide simple announcement and image info (no extended explanation)
+        imgs = [f"Let's look at an image: {img['name']} (Description: {img['desc']}) - Path: {img['path']}" for img in results]
         output = "\n".join(imgs)
     else:
         output = "No relevant images found."
@@ -40,22 +40,23 @@ image_tool = Tool(
     description="Fetches relevant figures and descriptive details for a science topic."
 )
 
+
 # Tool 3: Animated Video Retrieval Tool
 def video_tool_func(topic: str) -> str:
     print(f"[DEBUG] video_tool_func called with topic: {topic}")
-    # Avoid calling video search with full video titles or if topic contains YouTube ID
+    # Avoid recursive calls with video titles or URLs as input
     if "YouTube ID:" in topic or "youtube.com" in topic.lower() or "http" in topic.lower():
         output = "Skipping video search on likely video title or URL."
         print(f"[DEBUG] video_tool_func output:\n{output}\n")
         return output
     result = fetch_animated_videos(topic)
     if result:
-        output = f"Video: {result['title']} (YouTube ID: {result['id']})"
+        # Announce video presence, no further explanation
+        output = f"Let's watch a video: {result['title']} (YouTube ID: {result['id']})"
     else:
         output = "No animation video found for this topic."
     print(f"[DEBUG] video_tool_func output:\n{output}\n")
     return output
-
 
 video_tool = Tool(
     name="VideoRetrieval",
