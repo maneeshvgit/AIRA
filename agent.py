@@ -2,16 +2,18 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import create_react_agent
 from agent_tools import knowledgebase_tool, image_tool, video_tool
+import traceback
 
 # Your Google API Key
-GOOGLE_API_KEY = "AIzaSyAKimE8Y9XQfXe0jDOPK-TrAn4VgXaAvjo"
+GOOGLE_API_KEY = "AIzaSyDDVj8ZJKExMlxhhJAMy0NJz0NPnyqSw4s"
 
 # Initialize Gemini LLM
 llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-pro",
+    model="gemini-1.5-flash",
     temperature=0.7,
     google_api_key=GOOGLE_API_KEY
 )
+print(f"[DEBUG] Initialized LLM: model={llm.model}, temperature={llm.temperature}, API key present: {bool(llm.google_api_key)}")
 
 # System prompt guiding AI teacher behaviors
 agent_system_prompt = """
@@ -52,12 +54,27 @@ def ask_agent(question: str, thread_id="main") -> str:
     """
     Send a query to the dynamic AI teacher agent and get a response.
     Maintains memory context across the session using thread_id.
+    Includes debug statements for all steps.
     """
-    response = agent.invoke(
-        {"messages": [("human", question)]},
-        config={"configurable": {"thread_id": thread_id}}
-    )
-    return response["messages"][-1].content
+    print(f"[DEBUG] Calling agent.invoke with question: {question} | thread_id: {thread_id}")
+    try:
+        response = agent.invoke(
+            {"messages": [("human", question)]},
+            config={"configurable": {"thread_id": thread_id}}
+        )
+        # print(f"[DEBUG] agent.invoke succeeded. Raw response:\n{response}")
+        if response and response.get("messages"):
+            output = response["messages"][-1].content
+            print(f"[DEBUG] AI output (final message): {output}")
+            return output
+        else:
+            print("[DEBUG] agent.invoke: No messages in response, returning empty string.")
+            return ""
+    except Exception as e:
+        print(f"[ERROR] agent.invoke raised an exception: {e}")
+        traceback.print_exc()
+        # Optionally, return a friendly fallback
+        return f"Sorry, an error occurred while processing your request: {e}"
 
 if __name__ == "__main__":
     print("Testing dynamic AI Teacher Agent with LangGraph...")
@@ -65,3 +82,4 @@ if __name__ == "__main__":
     print(f"Question: {test_query}")
     print("Answer:")
     print(ask_agent(test_query))
+
