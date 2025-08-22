@@ -1,4 +1,4 @@
-from langchain.tools import Tool
+from langchain.tools import tool
 from utils import search, fetch_animated_videos
 import json
 import os
@@ -23,6 +23,7 @@ with open(METADATA_FILE, "r", encoding="utf-8") as f:
 
 index_figures = faiss.read_index(FAISS_INDEX_FILE)
 
+
 def get_image_path(figure_ref, image_dir=IMAGE_DIR):
     base_name = figure_ref.replace(" ", "_")
     attempts = [
@@ -35,6 +36,7 @@ def get_image_path(figure_ref, image_dir=IMAGE_DIR):
         if os.path.exists(test_path):
             return test_path
     return None
+
 
 def fetch_figures_only(subchapter_name):
     figures = [fig for fig in figures_data if fig["subchapter"] == subchapter_name]
@@ -49,11 +51,13 @@ def fetch_figures_only(subchapter_name):
             })
     return figure_blocks
 
+
 def search_subchapter_by_query(query, top_k=1):
     query_embedding = image_model.encode([query], convert_to_numpy=True).astype('float32')
     _, indices = index_figures.search(query_embedding.reshape(1, -1), top_k)
     best_match_index = str(indices[0][0])
     return metadata_figures.get(best_match_index, None)
+
 
 def fetch_images_for_topic(query):
     subchapter = search_subchapter_by_query(query)
@@ -61,28 +65,25 @@ def fetch_images_for_topic(query):
         return []
     return fetch_figures_only(subchapter)
 
-# === Tools ===
 
-# Tool 1: Knowledge Base Search Tool
-def knowledgebase_tool_func(query: str) -> str:
-    print(f"[DEBUG] knowledgebase_tool_func called with query: {query}")
+# === Tools (Groq-compatible, with schema) ===
+
+@tool
+def knowledgebase_tool(query: str) -> str:
+    """Retrieves explanations from the science textbook knowledge base."""
+    print(f"[DEBUG] knowledgebase_tool called with query: {query}")
     results = search(query, mode="hybrid", top_k=1)
     if results:
         output = results[0]['content']
     else:
         output = "Sorry, I couldn't find information for that topic."
-    # print(f"[DEBUG] knowledgebase_tool_func output:\n{output}\n")
     return output
 
-knowledgebase_tool = Tool(
-    name="KnowledgeBaseSearch",
-    func=knowledgebase_tool_func,
-    description="Retrieves explanations from the science textbook knowledge base."
-)
 
-# Tool 2: Image/Figure Retrieval Tool (Updated)
-def image_tool_func(topic: str) -> str:
-    print(f"[DEBUG] image_tool_func called with topic: {topic}")
+@tool
+def image_tool(topic: str) -> str:
+    """Fetches relevant figures and descriptive details for a science topic."""
+    print(f"[DEBUG] image_tool called with topic: {topic}")
     results = fetch_images_for_topic(topic)
     if isinstance(results, str):  # error or no figures found
         output = results
@@ -91,32 +92,22 @@ def image_tool_func(topic: str) -> str:
         output = "\n".join(imgs)
     else:
         output = "No relevant images found."
-    print(f"[DEBUG] image_tool_func output:\n{output}\n")
+    print(f"[DEBUG] image_tool output:\n{output}\n")
     return output
 
-image_tool = Tool(
-    name="ImageRetrieval",
-    func=image_tool_func,
-    description="Fetches relevant figures and descriptive details for a science topic."
-)
 
-# Tool 3: Animated Video Retrieval Tool
-def video_tool_func(topic: str) -> str:
-    print(f"[DEBUG] video_tool_func called with topic: {topic}")
+@tool
+def video_tool(topic: str) -> str:
+    """Finds short animated explainer videos for science concepts."""
+    print(f"[DEBUG] video_tool called with topic: {topic}")
     if "YouTube ID:" in topic or "youtube.com" in topic.lower() or "http" in topic.lower():
         output = "Skipping video search on likely video title or URL."
-        print(f"[DEBUG] video_tool_func output:\n{output}\n")
+        print(f"[DEBUG] video_tool output:\n{output}\n")
         return output
     result = fetch_animated_videos(topic)
     if result:
         output = f"Let's watch a video: {result['title']} (YouTube ID: {result['id']})"
     else:
         output = "No animation video found for this topic."
-    print(f"[DEBUG] video_tool_func output:\n{output}\n")
+    print(f"[DEBUG] video_tool output:\n{output}\n")
     return output
-
-video_tool = Tool(
-    name="VideoRetrieval",
-    func=video_tool_func,
-    description="Finds short animated explainer videos for science concepts."
-)
