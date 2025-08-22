@@ -1,55 +1,72 @@
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI   # OpenAI-compatible wrapper for Groq
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import create_react_agent
 from agent_tools import knowledgebase_tool, image_tool, video_tool
 import traceback
 
-# Your Google API Key
-GOOGLE_API_KEY = "AIzaSyDDVj8ZJKExMlxhhJAMy0NJz0NPnyqSw4s"
+# =======================
+# Your Groq API Key
+# =======================
+GROQ_API_KEY = "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"
 
-# Initialize Gemini LLM
-llm = ChatGoogleGenerativeAI(
-    model="gemini-1.5-flash",
+# =======================
+# Initialize Groq LLM
+# =======================
+llm = ChatOpenAI(
+    model="llama3-70b-8192",   # choices: "llama3-70b-8192", "mixtral-8x7b-32768", "llama3-8b-8192"
     temperature=0.7,
-    google_api_key=GOOGLE_API_KEY
+    api_key=GROQ_API_KEY,
+    base_url="https://api.groq.com/openai/v1"
 )
-print(f"[DEBUG] Initialized LLM: model={llm.model}, temperature={llm.temperature}, API key present: {bool(llm.google_api_key)}")
+print(f"[DEBUG] Initialized Groq LLM: model={llm.model_name}, temperature={llm.temperature}")
 
-# System prompt guiding AI teacher behaviors
+# =======================
+# System prompt
+# =======================
 agent_system_prompt = """
 You are an engaging, empathetic, and knowledgeable AI science teacher for middle-school students.
 
 INSTRUCTIONS:
-- Always teach in student-friendly, enthusiastic language, using analogies and stories.
-- Use your tools to fetch accurate explanations, images, and animated videos as needed.
-- When asked to explain a topic, use the KnowledgeBaseSearch tool for the lesson,
-  then enhance with ImageRetrieval and VideoRetrieval at appropriate moments.
-- During any student question, pause your lecture and answer clearly.
-- Resume your teaching exactly where you left off after questions.
-- When showing an image or video, just announce "Let's look at an image" or "Let's watch a video" and provide the relevant file path or YouTube info. Do not explain unless explanation is present in the knowledgebase.
-- If you do not know something, say so in a friendly way and encourage curiosity.
-- Always maintain the flow of a real classroom — don’t be robotic, weave personality and warmth into responses.
-- Never repeat content unnecessarily, adapt your teaching based on student feedback.
+
+* Always teach in student-friendly, enthusiastic language, using analogies and stories.
+* Distinguish between new topics, doubts or follow-up questions, and casual chit-chat.
+* For a new topic, call KnowledgeBaseSearch, then ImageRetrieval, then VideoRetrieval, one at a time. If a tool has no result, ignore it silently. If results exist, introduce them naturally in your teaching, such as “Here’s a diagram to help you picture this” or “Let’s watch a short video to see this in action.”
+* For doubts or follow-up questions, call KnowledgeBaseSearch only. If no result is found, reply with “That’s not exactly in your syllabus, but I can still explain it in a simple way” and then give a simplified answer.
+* For casual chit-chat, do not call any tools. Just reply warmly, like a friendly teacher.
+* After a tool returns, continue your explanation naturally, weaving the result into your teaching.
+* When a student interrupts with a question, pause, answer, then resume the lesson from where you left off.
+* If you don’t know something, admit it warmly and encourage curiosity.
+* Do not repeat content unnecessarily — adapt based on student feedback.
+* Maintain the flow of a real classroom: be warm, engaging, and adaptive.
 
 TOOLS AVAILABLE:
-- KnowledgeBaseSearch: For textbook explanations.
-- ImageRetrieval: For related figures/images.
-- VideoRetrieval: For short, animated explainer videos.
 
-Behave like a passionate human teacher, not a robot. Handle unexpected questions, interruptions, and clarifications adaptively, using your tools.
+* KnowledgeBaseSearch (use for textbook-style explanations)
+* ImageRetrieval (use for figures/images)
+* VideoRetrieval (use for short animated videos)
+
+Behave like a passionate human teacher, not a robot.
+
 """
 
-# Persistent conversation memory for LangGraph, supports "session resume"
+# =======================
+# Conversation memory
+# =======================
 memory_saver = MemorySaver()
 
-# Create LangGraph ReAct agent (with persistent thread memory)
+# =======================
+# Create ReAct agent
+# =======================
 agent = create_react_agent(
     llm,
     tools=[knowledgebase_tool, image_tool, video_tool],
     prompt=agent_system_prompt,
-    checkpointer=memory_saver  # enables multi-turn, interrupt/resume
+    checkpointer=memory_saver
 )
 
+# =======================
+# Query function
+# =======================
 def ask_agent(question: str, thread_id="main") -> str:
     """
     Send a query to the dynamic AI teacher agent and get a response.
@@ -62,10 +79,9 @@ def ask_agent(question: str, thread_id="main") -> str:
             {"messages": [("human", question)]},
             config={"configurable": {"thread_id": thread_id}}
         )
-        # print(f"[DEBUG] agent.invoke succeeded. Raw response:\n{response}")
         if response and response.get("messages"):
             output = response["messages"][-1].content
-            print(f"[DEBUG] AI output (final message): {output}")
+            # print(f"[DEBUG] AI output (final message): {output}")
             return output
         else:
             print("[DEBUG] agent.invoke: No messages in response, returning empty string.")
@@ -73,11 +89,10 @@ def ask_agent(question: str, thread_id="main") -> str:
     except Exception as e:
         print(f"[ERROR] agent.invoke raised an exception: {e}")
         traceback.print_exc()
-        # Optionally, return a friendly fallback
         return f"Sorry, an error occurred while processing your request: {e}"
 
 if __name__ == "__main__":
-    print("Testing dynamic AI Teacher Agent with LangGraph...")
+    print("Testing dynamic AI Teacher Agent with LangGraph (Groq LLaMA)...")
     test_query = "Explain photosynthesis."
     print(f"Question: {test_query}")
     print("Answer:")
