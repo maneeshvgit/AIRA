@@ -1,11 +1,12 @@
 from agent import ask_agent
+import uuid
 
 def main():
     print("AI Teacher Agent Interactive Terminal")
     print("Type 'exit' or 'quit' to stop.")
     print("Press Enter to let the teacher continue, or type a question to interrupt.\n")
 
-    thread_id = "classroom_session"  # Persistent session ID
+    thread_id = f"classroom_session_{uuid.uuid4().hex[:8]}"  # Persistent session ID
     lesson_buffer = []               # Current lesson lines
     current_line_idx = 0
 

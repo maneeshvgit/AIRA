@@ -1,7 +1,9 @@
 from langchain.tools import tool
-from utils import search, fetch_animated_videos
+from utils import search
 import json
 import os
+from textwrap import dedent
+import yt_dlp
 import faiss
 import torch
 from sentence_transformers import SentenceTransformer
@@ -66,7 +68,7 @@ def fetch_images_for_topic(query):
     return fetch_figures_only(subchapter)
 
 
-# === Tools (Groq-compatible, with schema) ===
+# === Tools ===
 
 @tool
 def knowledgebase_tool(query: str) -> str:
@@ -85,10 +87,10 @@ def image_tool(topic: str) -> str:
     """Fetches relevant figures and descriptive details for a science topic."""
     print(f"[DEBUG] image_tool called with topic: {topic}")
     results = fetch_images_for_topic(topic)
-    if isinstance(results, str):  # error or no figures found
+    if isinstance(results, str):
         output = results
     elif results:
-        imgs = [f"Let's look at an image: {img['name']} (Description: {img['desc']}) - Path: {img['path']}" for img in results]
+        imgs = [f"{img['name']} — {img['desc']} (see: {img['path']})" for img in results]
         output = "\n".join(imgs)
     else:
         output = "No relevant images found."
@@ -96,18 +98,71 @@ def image_tool(topic: str) -> str:
     return output
 
 
+def fetch_animated_videos(topic, num_videos=1):
+    search_query = f"ytsearch{num_videos}:{topic} animation explained in english"
+    ydl_opts = {
+        "quiet": True,
+        "extract_flat": True,
+        "force_generic_extractor": True
+    }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(search_query, download=False)
+        if "entries" in info and len(info["entries"]) > 0:
+            video = info["entries"][0]
+            if video.get("duration", 301) <= 300:  # only pick videos ≤ 5 min
+                url = f"https://www.youtube.com/watch?v={video['id']}"
+                return {
+                    "title": video["title"],
+                    "url": url,
+                    "id": video["id"]
+                }
+    return None
+
+
 @tool
 def video_tool(topic: str) -> str:
     """Finds short animated explainer videos for science concepts."""
     print(f"[DEBUG] video_tool called with topic: {topic}")
-    if "YouTube ID:" in topic or "youtube.com" in topic.lower() or "http" in topic.lower():
-        output = "Skipping video search on likely video title or URL."
+    
+    if "youtube.com" in topic.lower() or "http" in topic.lower():
+        output = "Skipping video search on likely video URL."
         print(f"[DEBUG] video_tool output:\n{output}\n")
         return output
+    
     result = fetch_animated_videos(topic)
     if result:
-        output = f"Let's watch a video: {result['title']} (YouTube ID: {result['id']})"
+        output = f"{result['title']} (YouTube: {result['url']})"
     else:
         output = "No animation video found for this topic."
+    
     print(f"[DEBUG] video_tool output:\n{output}\n")
     return output
+
+
+@tool
+def lesson_builder(topic: str) -> str:
+    """Builds a structured lesson by combining text, images, and video (returns formatted content)."""
+    print(f"[DEBUG] lesson_builder called with topic: {topic}")
+
+    kb_text = knowledgebase_tool.invoke(topic)
+    image_info = image_tool.invoke(topic)
+    video_info = video_tool.invoke(topic)
+
+    image_ref = image_info if image_info and "see:" in image_info else None
+    video_ref = video_info if video_info and "http" in video_info else None
+
+    # Structured lesson content (no LLM here!)
+    lesson = dedent(f"""
+    Topic: {topic}
+
+    Main Explanation:
+    {kb_text if kb_text else "No detailed explanation available."}
+
+    {"Here’s a diagram to help you picture this: " + image_ref if image_ref else ""}
+
+    {"Let’s watch a short video to see this in action: " + video_ref if video_ref else ""}
+    """).strip()
+
+    print(f"[DEBUG] lesson_builder output:\n{lesson}\n")
+    return lesson

@@ -1,13 +1,15 @@
 # lesson_manager.py
 from agent import ask_agent
+import uuid
 
 class LessonManager:
-    def __init__(self, thread_id="classroom_session"):
-        
+    def __init__(self, thread_id=None):
+        if thread_id is None:
+            thread_id = f"classroom_session_{uuid.uuid4().hex[:8]}"
         self.thread_id = thread_id
         self.lesson_buffer = []       
         self.current_line_idx = 0     
-        self.paused_context = []      
+        self.paused_context = []     
 
     def start_lesson(self, topic: str):
         
