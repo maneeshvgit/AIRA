@@ -140,29 +140,4 @@ def video_tool(topic: str) -> str:
     return output
 
 
-@tool
-def lesson_builder(topic: str) -> str:
-    """Builds a structured lesson by combining text, images, and video (returns formatted content)."""
-    print(f"[DEBUG] lesson_builder called with topic: {topic}")
 
-    kb_text = knowledgebase_tool.invoke(topic)
-    image_info = image_tool.invoke(topic)
-    video_info = video_tool.invoke(topic)
-
-    image_ref = image_info if image_info and "see:" in image_info else None
-    video_ref = video_info if video_info and "http" in video_info else None
-
-    # Structured lesson content (no LLM here!)
-    lesson = dedent(f"""
-    Topic: {topic}
-
-    Main Explanation:
-    {kb_text if kb_text else "No detailed explanation available."}
-
-    {"Here’s a diagram to help you picture this: " + image_ref if image_ref else ""}
-
-    {"Let’s watch a short video to see this in action: " + video_ref if video_ref else ""}
-    """).strip()
-
-    print(f"[DEBUG] lesson_builder output:\n{lesson}\n")
-    return lesson
